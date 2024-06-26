@@ -19,6 +19,7 @@ function InstanceLeaderboard({problemData, leaderboardData, instance}) {
   const columns = createColumns(problemData, instance);
   // Copy is to we only affect this leaderboard when ranking the instance entries.
   const instanceLeaderboardData = [...leaderboardData];
+
   rankInstanceEntries(problemData, instanceLeaderboardData, instance);
   return <Leaderboard problemData={problemData} columns={columns} leaderboardData={instanceLeaderboardData} LeaderboardRow={LeaderboardRow}/>
 }
@@ -29,7 +30,7 @@ function InstanceLeaderboard({problemData, leaderboardData, instance}) {
  * @param {JSON} entry a single entry in the leaderboard
  * @returns 
  */
-function LeaderboardRow({columns, entry}) {
+export function LeaderboardRow({columns, entry}) {
   return (
     <>
       <tr className="view">
@@ -50,6 +51,9 @@ function LeaderboardRow({columns, entry}) {
  */
 function createColumns(problem, instance) {
   let columns = [];
+  if (problem.length === 0) {
+    return columns;
+  }
 
   columns.push(new LeaderboardColumn("#", 
     (entry) => { return entry.instance_entries[instance].rank === 0 ? 
@@ -61,8 +65,8 @@ function createColumns(problem, instance) {
   columns.push(new LeaderboardColumn("Submission name", 
     (entry) => { return entry.submission.name }));
   columns.push(new LeaderboardColumn("Submitted by", 
-    (entry) => { return entry.submitter.name }));
-  columns.push(new LeaderboardColumn("Submitted date", 
+    (entry) => { return entry.submitter.name != null && entry.submitter.name != "" ?  entry.submitter.name : "Anonymous user" }));
+  columns.push(new LeaderboardColumn("Submission date", 
     (entry) => { return entry.submission.created_at.slice(0,10) })); //the slice is to format the date
 
   problem.metrics.forEach((metric) => {
@@ -70,29 +74,8 @@ function createColumns(problem, instance) {
       columns.push(new MetricColumn(metric, (entry) => { return entry.instance_entries[instance].results; }))
     }
   });
-
-  columns.push(new LeaderboardColumn("Download Solution", 
-    (entry) => { return <div className="download-cell"><i role="button" onClick={handleDownloadSolutionsClick} className="bi-download" /></div> },
-    <div className="download-cell">Download Solutions</div>
-  ));
-  columns.push(new LeaderboardColumn("Download Scores", 
-    (entry) => { return <div className="download-cell"><i role="button" onClick={handleDownloadScoresClick} className="bi-download" /></div> },
-    <div className="download-cell">Download Scores</div>
-  ));
-
+  
   return columns;
-}
-
-// Download solutions handler
-function handleDownloadSolutionsClick(e) {
-  e.stopPropagation();
-  alert("download solutions");
-}
-
-// Download scores handler
-function handleDownloadScoresClick(e) {
-  e.stopPropagation();
-  alert("download scores");
 }
 
 /**
@@ -102,8 +85,12 @@ function handleDownloadScoresClick(e) {
  * @param {int} rowLimit the limit to the amount of displayed rows 
  * @param {bool} showPagination whether to show a pagination component (not implemented yet)
  */
-function rankInstanceEntries(problemData, leaderboardData, instance) {
+export function rankInstanceEntries(problemData, leaderboardData, instance) {
   const rankableInstanceEntries = [];
+
+  if (problemData.length === 0) {
+    return leaderboardData;
+  }
   
   for (let entry of leaderboardData) {
     let instanceEntry = entry.instance_entries[instance];
@@ -135,4 +122,4 @@ function rankInstanceEntries(problemData, leaderboardData, instance) {
   })
 }
 
-export default InstanceLeaderboard;
+export default InstanceLeaderboard; 

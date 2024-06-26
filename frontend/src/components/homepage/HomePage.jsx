@@ -3,6 +3,7 @@ import './HomePage.scss';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { useState, useEffect } from 'react';
+import { useAlert } from '../../context/AlertContext';
 
 /**
  * React component to render a table of problem occurences
@@ -46,7 +47,7 @@ function ProblemOccurenceOverview({rows}) {
                         </ul>
                     </div> 
                     <div className='card_footer'>
-                        <p>1D 20H 40M</p>
+                        
                     </div>
                 </div>
             ))}
@@ -55,40 +56,39 @@ function ProblemOccurenceOverview({rows}) {
 }
 
 /**
- * Fetches problem occurences from the backend
+ * Fetches problem occurrences from the backend
  * @returns data, array
  */
-async function getRows() {
+async function getRows(showAlert) {
     try {
         const response = await api.post('/problems/occurrence_overview', {});
         return response.data
-    } catch(err) {
-        if (err.response.status == 401) {
-            throw new Error("Unauthorized to access this content");
-            //TODO maybe redirect here or something
-        } else if (err.response.status == 404) {
-            throw new Error("No problem instances found in the database");
+    } catch(error) {
+        if (error.response.status == 401) {
+            showAlert("Unauthorized to access this content", "error");
+        } else if (error.response.status == 404) {
+            showAlert("No problems found", "error");
         } else {
-            throw err;
+            showAlert("Something went wrong", "error");
         }
     }
 }
 
 /**
  * React component for rending the homepage
- * @returns Problem occurence table
+ * @returns Problem occurrence table
  */
 function HomePage() {
     const [rows, setRows] = useState([]);
+    let {showAlert} = useAlert();
 
     useEffect(() => {
         const fetchRows = async () => {
         try {
-            const data = await getRows();
+            const data = await getRows(showAlert);
             setRows(data);
         } catch(error) {
-            // TODO, proper handling
-            alert(error.message)
+            showAlert("Something went wrong", "error")
             console.error(error)
         }}
 

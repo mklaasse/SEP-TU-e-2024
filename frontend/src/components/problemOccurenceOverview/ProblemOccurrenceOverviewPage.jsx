@@ -7,17 +7,25 @@ import ProblemOccurrenceLeaderboard from "./contents/ProblemOccurrenceLeaderboar
 import ProblemOccurrenceProblemInstanceList from "./contents/ProblemOccurrenceProblemInstanceList";
 import ProblemOccurrenceSubmission from "./contents/ProblemOccurrenceSubmission";
 import './ProblemOccurrrenceOverviewBody.scss';
+import { useAlert } from "../../context/AlertContext";
 
 /**
  * Async function to fetch the leaderboard data from the backend
  * @returns response data
  */
-async function getLeaderboardData(problemId) {
+async function getLeaderboardData(problemId, showAlert) {
   try {
     const response = await api.get(`/leaderboard/${problemId}`);
     return response.data;
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    if (error.response.status == 401) {
+      showAlert("Unauthorized to access this content", "error");
+    } else if (error.response.status == 404) {
+      showAlert("Problem not found", "error")
+    } else if (error.response.status == 500) {
+      showAlert("Something went wrong on the server", "error")
+    }
+    console.error(error);
   }
 }
 
@@ -29,17 +37,13 @@ function ProblemOccurrenceOverviewPage() {
   const [currentTab, setCurrentTab] = useState("1");
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  if (problemData == null) {
-    //somewhat janky error handling but there isn't really any other exception that is thrown somewhere
-    throw new Error("Problem with fetching the requested data from db");
-  }
+  let { showAlert } = useAlert();
   
   useEffect(() => {
     
     const fetchLeaderboardData = async () => {
       try {
-        const data = await getLeaderboardData(problemData.id);
+        const data = await getLeaderboardData(problemData.id, showAlert);
         const entries = data.entries.concat(data.unranked_entries)        
         setEntries(entries);
       } catch (err) {
@@ -51,6 +55,12 @@ function ProblemOccurrenceOverviewPage() {
     }
     fetchLeaderboardData();
   }, []);
+
+  if (problemData == null) {
+    //somewhat janky error handling but there isn't really any other exception that is thrown somewhere
+    showAlert("Problem with fetching the requested data from db");
+    return <div>No data found</div>
+  }
   
   //Handle the tab switch by setting the currentTab state to the id of the tab that is clicked
   function handleTabSwitch(e) {
@@ -66,8 +76,10 @@ function ProblemOccurrenceOverviewPage() {
             <h1 className="fw-bold">{problemData.name}</h1>
           </Col>
           <Col xs="2" className="align-self-end text-end text-light fw-bold">
+            {/* TODO: Implement 
             <Row><Col>1/day<i className="bi-cloud-upload" /></Col></Row>
-            <Row><Col>1d 20h 40m <i className="bi-clock" /></Col></Row>
+            <Row><Col>1d 20h 40m <i className="bi-clock" /></Col></Row> 
+            */}
           </Col> 
         </Row>
         <Row className="align-items-center">
@@ -118,7 +130,7 @@ function ProblemOccurrenceOverviewPage() {
               {!loading ? (<ProblemOccurrenceLeaderboard problemData={problemData} leaderboardData={entries}/>) : <div>Loading...</div>}
             </TabPane>
             <TabPane tabId="3">
-              <ProblemOccurrenceSubmission />
+              <ProblemOccurrenceSubmission problemData={problemData}/>
             </TabPane>
             
             {/* if category.style is 0 it is a comp problem */}
@@ -148,14 +160,16 @@ export async function getPOInfo(problemOccurrenceID) {
   try {
     const response = await api.get(`problems/problem_occurrence/${problemOccurrenceID}`);
     return response.data; 
-  } catch(err) {
-    console.error(err);
-    if (err.response.status == 404) {
-      throw new Error("Error 404: problem occurrence was not found");
-    } else if (err.response.status == 401) {
-      throw new Error("Error 401: unauthorized to access this content");
+  } catch(error) {
+    // Can not change alerts to showAlert due to this not being react component
+    if (error.response.status == 401) {
+      alert("Unauthorized to access this content", "error");
+    } else if (error.response.status == 404) {
+      alert("No problem categories not found", "error")
+    } else if (error.response.status == 500) {
+      alert("Something went wrong on the server", "error")
     }
-    else throw err;
+    console.log(error)
   }
 }
 

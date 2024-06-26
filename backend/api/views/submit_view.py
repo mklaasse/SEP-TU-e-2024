@@ -6,11 +6,12 @@ from azure.storage.blob import BlobServiceClient
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage
+from django.shortcuts import redirect
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
@@ -30,12 +31,16 @@ class SubmitViewSet(ViewSet):
     logger = logging.getLogger(__name__)
 
     @action(detail=False, methods=["POST"])
-    def upload_submission(self, request):
+    def submit(self, request):
+        """
+        Method used for submtting a submission
+        """
+
         request_file = request.FILES["file"]
         # Check if file exists
         if not request_file:
             return Response(
-                {"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": "No file provided"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         # Check file properties
@@ -45,7 +50,7 @@ class SubmitViewSet(ViewSet):
             and self.check_file_type(request_file)
         ):
             return Response(
-                {"error": "Invalid file provided"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Invalid file provided"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         # Checks validity of submitted data
@@ -53,6 +58,7 @@ class SubmitViewSet(ViewSet):
         if not serializer.is_valid():
             for field, message in serializer.errors.items():
                 self.logger.error({"field": field, "error": message})
+                return Response({"detail" : message}, status=status.HTTP_400_BAD_REQUEST)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         # Gets or creates user
         user = request.user
@@ -69,7 +75,7 @@ class SubmitViewSet(ViewSet):
         if not self.save_to_blob_storage(request_file, submission.id):
             submission.delete()
             return Response(
-                {"error": "An error occurred during file upload"},
+                {"detail": "An error occurred during file upload"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -138,6 +144,7 @@ class SubmitViewSet(ViewSet):
         message = render_to_string(
             "email_template_confirm_submission.html",
             {
+                "user": request.user.name if not request.user.is_anonymous else "User",
                 "domain": get_current_site(request).domain,
                 "sid": urlsafe_base64_encode(force_bytes(submission.id)),
                 "token": submission_confirm_token.make_token(submission),
@@ -152,8 +159,8 @@ class SubmitViewSet(ViewSet):
         )
         return email.send()
 
-    @api_view(('GET',))
-    def confirm_submission(self, sidb64, token):
+    @action(detail=False, methods=["GET"])
+    def activate(self, request, sidb64, token):
         """Activates submission in backend
 
         Parameters
@@ -172,20 +179,18 @@ class SubmitViewSet(ViewSet):
         except ObjectDoesNotExist:
             self.logger.warning("Could not locate user")
             return Response(
-                {"User error": "User not found."}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": "User not found."}, status=status.HTTP_400_BAD_REQUEST
             )
-
+        
         # Checks token validity
-        if submission is not None and submission_confirm_token.check_token(
-            submission, token
-        ):
-            # Puts submission to verified
-            self.evaluate_submission(submission)
-            return Response({"Succesfull": "Succesfull"}, status=status.HTTP_200_OK)
-        return Response(
-            {"Submission error": "Submission not found"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        if submission is None:
+            return Response({"detail": "Submission not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not submission_confirm_token.check_token(submission, token):
+            return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        self.evaluate_submission(submission)
+        return redirect(f'{os.getenv("FRONTEND_URL")}/home')
 
     def save_to_blob_storage(self, file, submission_id):
         """Saves a file to Azure Blob Storage

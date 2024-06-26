@@ -8,7 +8,7 @@ import {
     NavbarToggler,
     Collapse
 } from 'reactstrap'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import AuthContext from "../../context/AuthContext";
 import './navbar.scss';
 
@@ -23,6 +23,7 @@ function MyNavbar() {
     const [isOpen, setIsOpen] = useState(false);
     let {user} = useContext(AuthContext)
     let {logout_user} = useContext(AuthContext)
+    const navigate = useNavigate();
     
     const toggle = () => setIsOpen(!isOpen); //toggle the isOpen state variable
     
@@ -35,18 +36,19 @@ function MyNavbar() {
         HOME: '/home',
         ROOT: '/',
         DEVELOPMENT : '/in_development',
-        ACCOUNT: '/account'
+        ACCOUNT: '/account',
+        ABOUT: '/about'
     }
     
     
     return (
 
         <Navbar expand="md" container="md" className="mynavbar">
-            <NavbarBrand href="/">
-                <img alt="logo" src="/src/assets/LOGO.svg" style={{ width: 120 }} />
+            <NavbarBrand onClick={() => {navigate(routeStrings.ROOT)}} href="">
+                <img alt="logo" src="/assets/LOGO.svg" style={{ width: 120 }} />
             </NavbarBrand>
-            <NavbarToggler onClick={toggle} />
-            <Collapse isOpen={isOpen} navbar>
+            <NavbarToggler onClick={toggle} data-testid="toggler"/>
+            <Collapse isOpen={isOpen} navbar data-testid="collapse">
                 <Nav navbar className="me-auto navbar-left">
                     <NavItem className="route-button">
                         <NavLink active={routeStrings.BESTKNOWNSOLUTIONS === location.pathname} href={routeStrings.DEVELOPMENT}> {/* TODO: change link to BESTKNOWNSOLUTIONS if that page is implemented */}
@@ -56,7 +58,9 @@ function MyNavbar() {
                 </Nav>
                 <Nav navbar className="ms-auto navbar-right d-flex flex-row">
                     <NavItem className="information-button">
-                        <img src="/src/assets/question_mark.svg"/>
+                        <a href={routeStrings.ABOUT}>
+                            <img src="/assets/question_mark.svg"/>
+                        </a>
                     </NavItem>
                     {user ? (
                         <>
@@ -70,10 +74,10 @@ function MyNavbar() {
                     ) : (
                         <>
                         <NavItem className="login-logout-button">
-                            <a href={routeStrings.LOGIN}>Login</a>
+                            <a onClick={() => {navigate(routeStrings.LOGIN)}} href="">Login</a>
                         </NavItem>
                         <NavItem className="register-button">
-                            <a href={routeStrings.REGISTER}>Registration</a>
+                            <a onClick={() => {navigate(routeStrings.REGISTER)}} href="">Registration</a>
                         </NavItem>
                         </>
                     )}
